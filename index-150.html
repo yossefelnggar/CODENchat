@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#212121">
+<title>CODEN Match</title>
+<style>
+*{box-sizing:border-box}
+:root{--bg:#212121;--panel:#2f2f2f;--text:#ececec;--muted:#a7a7a7;--line:#444;--green:#10a37f}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}
+button,input,textarea{font:inherit}
+body{display:flex;justify-content:center}
+.app{width:100%;min-height:100vh;display:flex;flex-direction:column}
+.header{height:58px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid rgba(255,255,255,.08);background:#212121;position:sticky;top:0;z-index:5}
+.brand{display:flex;align-items:center;gap:9px;font-weight:650;font-size:15px}.brandMark{width:28px;height:28px;border-radius:8px;background:#10a37f;display:grid;place-items:center;color:#fff;font-weight:800}
+.status{font-size:11px;color:#999;display:flex;gap:6px;align-items:center}.dot{width:6px;height:6px;border-radius:50%;background:#10a37f}
+.chat{width:min(780px,100%);margin:auto;flex:1;padding:30px 18px 145px}
+.welcome{text-align:center;margin:18vh auto 34px;max-width:600px}.welcome h1{font-size:30px;margin:0 0 10px;letter-spacing:-.7px}.welcome p{color:#aaa;font-size:14px;line-height:1.7;margin:0}
+.messages{display:flex;flex-direction:column;gap:26px}
+.message{display:flex;gap:13px;align-items:flex-start;line-height:1.75;font-size:15px;animation:in .18s ease}
+.message.user{direction:ltr;justify-content:flex-start}.message.user .content{direction:rtl}
+.avatar{width:30px;height:30px;flex:0 0 30px;border-radius:9px;display:grid;place-items:center;font-size:12px;font-weight:700}
+.bot .avatar{background:#10a37f}.user .avatar{background:#555}
+.content{max-width:calc(100% - 44px);white-space:pre-wrap}
+.user .content{background:#2f2f2f;border-radius:17px;padding:9px 13px}
+.typing{display:flex;gap:4px;padding-top:7px}.typing i{width:5px;height:5px;border-radius:50%;background:#aaa;animation:b 1s infinite}.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+@keyframes b{50%{opacity:.25;transform:translateY(-2px)}}@keyframes in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.composerWrap{position:fixed;bottom:0;left:0;right:0;padding:10px 14px 18px;background:linear-gradient(transparent,#212121 25%);z-index:4}
+.composerArea{width:min(780px,100%);margin:auto}.composer{display:flex;align-items:flex-end;gap:8px;background:#2f2f2f;border:1px solid #505050;border-radius:24px;padding:7px 8px 7px 12px;box-shadow:0 3px 18px rgba(0,0,0,.18)}
+textarea{flex:1;resize:none;background:transparent;border:0;outline:0;color:#fff;min-height:42px;max-height:140px;padding:10px 4px;line-height:1.45}textarea::placeholder{color:#858585}
+.send{width:36px;height:36px;border:0;border-radius:50%;background:#ececec;color:#222;font-weight:800}.send:disabled{opacity:.35}
+.hints{display:flex;gap:7px;overflow:auto;scrollbar-width:none;padding:8px 2px 0}.hints::-webkit-scrollbar{display:none}.hint{border:1px solid #4a4a4a;background:transparent;color:#bdbdbd;border-radius:15px;padding:6px 10px;font-size:11px;white-space:nowrap}
+.progress{height:2px;background:#333}.progress i{display:block;height:100%;background:#10a37f;width:0;transition:.3s}
+.success{text-align:center;padding:40px 10px}.success .check{width:50px;height:50px;border-radius:50%;background:#10a37f;margin:0 auto 14px;display:grid;place-items:center;font-size:22px}.success h2{font-size:22px;margin:0 0 8px}.success p{color:#aaa;font-size:13px;line-height:1.7}
+.reset{margin-top:18px;border:1px solid #4a4a4a;background:transparent;color:#ddd;border-radius:18px;padding:9px 14px}
+@media(max-width:600px){.chat{padding:22px 13px 140px}.welcome{margin-top:12vh}.welcome h1{font-size:26px}.header{height:54px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="header"><div class="brand"><div class="brandMark">✦</div>CODEN Match</div><div class="status"><span class="dot"></span> Live</div></header>
+<div class="progress"><i id="progress"></i></div>
+<main class="chat" id="chat">
+<section class="welcome" id="welcome"><h1>اكتشف الشخص المناسب لمشروعك.</h1><p>محادثة قصيرة مع CODEN. جاوب بطريقتك، وإحنا نرتب بياناتك ونبحث عن Match مناسب.</p></section>
+<div class="messages" id="messages"></div>
+</main>
+<div class="composerWrap" id="composerWrap">
+<div class="composerArea"><div class="composer">
+<textarea id="input" rows="1" placeholder="اكتب رسالتك..." autocomplete="off"></textarea>
+<button class="send" id="send">↑</button>
+</div><div class="hints" id="hints"></div></div>
+</div>
+</div>
+
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import {getAuth} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+import {getDatabase,ref,set} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
+
+const firebaseConfig={
+ apiKey:"AIzaSyBYWT4JCyhD46YqPGvTVNBLzwUuf1QgleI",
+ authDomain:"store-ff93c.firebaseapp.com",
+ databaseURL:"https://store-ff93c-default-rtdb.europe-west1.firebasedatabase.app",
+ projectId:"store-ff93c",storageBucket:"store-ff93c.firebasestorage.app",
+ messagingSenderId:"679453799044",appId:"1:679453799044:web:eb129247ee6986a0cac8d1",
+ measurementId:"G-FL5JH70ZVG"
+};
+const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getDatabase(app);
+const $=id=>document.getElementById(id),messages=$("messages"),input=$("input"),send=$("send"),hints=$("hints"),progress=$("progress");
+const answers={name:"",idea:"",field:"",skills:"",lookingFor:"",offer:"",contact:"",email:"",whatsapp:""};
+const steps=[
+ {key:"name",q:"👋 أهلاً بك في CODEN.\nإيه اسمك؟",h:[]},
+ {key:"idea",q:"حلو يا {name}. إيه اللي بتبنيه أو إيه الفكرة اللي شغال عليها؟ حتى لو لسه مجرد فكرة.",h:["عندي فكرة لسه","عندي مشروع شغال","بدور على فكرة"]},
+ {key:"field",q:"والمشروع ده أقرب لأنهي مجال؟",h:["AI","SaaS","FinTech","E-commerce","Web / Mobile","Other"]},
+ {key:"skills",q:"إيه الحاجات اللي بتعرف تعملها؟ اكتبها بطريقتك، مش لازم تكون خبير.",h:["Programming","Design","Marketing","Sales","Business","AI"]},
+ {key:"lookingFor",q:"لو CODEN هيجيبلك شخص واحد مناسب، هتدور على مين؟",h:["Co-Founder","Developer","Designer","Marketer","Business Partner","Team"]},
+ {key:"offer",q:"وإنت إيه اللي تقدر تضيفه للشراكة؟",h:["Technical","Product","Marketing","Sales","Business","Idea"]},
+ {key:"contact",q:"آخر خطوة.\nفين نبعثلك نتيجة الـMatch؟ Email أو WhatsApp.",h:[]}
+];
+let i=0,busy=false;
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+function scroll(){requestAnimationFrame(()=>document.querySelector(".chat").scrollTo({top:99999,behavior:"smooth"}))}
+function add(text,who){
+ const el=document.createElement("div");el.className="message "+who;
+ el.innerHTML=`<div class="avatar">${who==="bot"?"✦":"Y"}</div><div class="content">${esc(text)}</div>`;
+ messages.appendChild(el);scroll()
+}
+function typing(){
+ const el=document.createElement("div");el.className="message bot";el.id="typing";
+ el.innerHTML=`<div class="avatar">✦</div><div class="content"><div class="typing"><i></i><i></i><i></i></div></div>`;
+ messages.appendChild(el);scroll()
+}
+function ask(){
+ const s=steps[i],q=s.q.replace("{name}",answers.name||"");
+ setTimeout(()=>{typing();setTimeout(()=>{document.getElementById("typing")?.remove();add(q,"bot");renderHints(s.h)},420)},i?180:350);
+ progress.style.width=(i/steps.length*100)+"%"
+}
+function renderHints(arr){
+ hints.innerHTML="";arr.forEach(x=>{const b=document.createElement("button");b.className="hint";b.textContent=x;b.onclick=()=>submit(x);hints.appendChild(b)})
+}
+async function submit(v){
+ if(busy||!v.trim())return;busy=true;send.disabled=true;
+ const s=steps[i];answers[s.key]=v.trim();if(s.key==="contact"){if(v.includes("@"))answers.email=v.trim();else answers.whatsapp=v.trim()}
+ add(v.trim(),"user");input.value="";hints.innerHTML="";
+ if(i<steps.length-1){i++;busy=false;send.disabled=false;ask();return}
+ progress.style.width="100%";typing();
+ try{
+  const user=auth.currentUser,userId=user?.uid||"guest_"+Date.now();
+  await set(ref(db,"matchingProfiles/"+userId),{
+   userId,name:answers.name,idea:answers.idea,field:answers.field,skills:answers.skills,
+   lookingFor:answers.lookingFor,offer:answers.offer,email:answers.email,whatsapp:answers.whatsapp,
+   createdAt:Date.now(),status:"pending",aiStatus:"waiting",matchStatus:"waiting",aiResult:null,matchedWith:null
+  });
+  document.getElementById("typing")?.remove();$("composerWrap").style.display="none";
+  const n=answers.name.split(" ")[0]||"صديقي";
+  messages.innerHTML+=`<div class="success"><div class="check">✓</div><h2>تمام يا ${esc(n)}.</h2><p>بياناتك وصلت لـ CODEN.<br>دلوقتي بنحلل الـProfile ونبحث عن الأشخاص الأقرب ليك.<br><br>النتيجة هتوصلك على وسيلة التواصل اللي كتبتها.</p><button class="reset" onclick="location.reload()">بدء Match جديد</button></div>`;
+  scroll();
+ }catch(e){document.getElementById("typing")?.remove();add("حصل خطأ أثناء حفظ البيانات. جرّب تاني.","bot");busy=false;send.disabled=false;console.error(e)}
+}
+send.onclick=()=>submit(input.value);
+input.addEventListener("input",()=>{input.style.height="auto";input.style.height=Math.min(input.scrollHeight,140)+"px"});
+input.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();submit(input.value)}});
+ask();
+</script>
+</body>
+</html>
